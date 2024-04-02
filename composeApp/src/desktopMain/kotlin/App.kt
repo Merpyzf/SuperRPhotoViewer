@@ -16,6 +16,8 @@ import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.PathEffect
+import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.input.pointer.PointerEventType
 import androidx.compose.ui.input.pointer.onPointerEvent
@@ -127,25 +129,31 @@ fun SuperRSegmentView(widePreviewImage: WidePreviewImage) {
                 this.drawContent()
 
                 val size = this.size
-
-                val width = size.width
-                val height = size.height
-
+                // FIXME: 后面查看新拍摄的图片时移除此处的纠错逻辑
                 val scaleWRatio = size.width / rawWideImageSize.width
                 val scaleHRatio = size.height / rawWideImageSize.height
+
+//                val scaleWRatio = (size.width / 1.3333334f) / rawWideImageSize.width
+//                val scaleHRatio = (size.height / 1.074074f) / rawWideImageSize.height
 
                 println("scaleWRatio: ${scaleWRatio}, scaleHRation: ${scaleHRatio}")
 
                 println("zoomSegmentImages.size: ${widePreviewImage.zoomSegmentImages.size}")
 
                 for (zoomSegmentImage in widePreviewImage.zoomSegmentImages) {
-                    zoomSegmentImage.scaleRect(scaleWRatio)
+                    zoomSegmentImage.scaleRect(scaleWRatio, scaleHRatio)
                     val scaledRect = zoomSegmentImage.scaledRect
                     this.drawRect(
-                        Color.Green,
+                        Color.White,
                         topLeft = Offset(scaledRect.left, scaledRect.top),
                         size = Size(scaledRect.right - scaledRect.left, scaledRect.bottom - scaledRect.top),
-                        style = Stroke(width = 2.dp.toPx())
+                        style = Stroke(
+                            width = 2.dp.toPx(), cap = StrokeCap.Round, pathEffect = PathEffect.dashPathEffect(
+                                floatArrayOf(
+                                    6.dp.toPx(), 6.dp.toPx()
+                                )
+                            )
+                        )
                     )
                 }
             }.onPointerEvent(PointerEventType.Press) {

@@ -11,7 +11,7 @@ fun File.isWidePreviewImage(): Boolean {
 
 fun File.waypointIndex(): Int? {
     val name = this.nameWithoutExtension
-    val pattern = Pattern.compile("W_widepreview-(\\d+)")
+    val pattern = Pattern.compile("W_superR-widepreview-(\\d+)")
     val matcher = pattern.matcher(name)
     return if (matcher.find()){
          matcher.group(1).toInt()

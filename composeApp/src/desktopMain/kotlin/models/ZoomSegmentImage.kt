@@ -32,15 +32,15 @@ class ZoomSegmentImage(val imageFile: File) {
         scaledRect = Rect(left, top, right, bottom)
     }
 
-    fun scaleRect(scale: Float) {
-        scaledRect = rawRect.scale(scale)
+    fun scaleRect(scaleWRatio: Float, scaleHRatio: Float) {
+        scaledRect = rawRect.scale(scaleWRatio, scaleHRatio)
     }
 
-    private fun Rect.scale(ratio: Float): Rect {
-        val left = this.left * ratio
-        val top = this.top * ratio
-        val right = this.right * ratio
-        val bottom = this.bottom * ratio
+    private fun Rect.scale(wRatio: Float, hRatio: Float): Rect {
+        val left = this.left * wRatio
+        val top = this.top * hRatio
+        val right = this.right * wRatio
+        val bottom = this.bottom * hRatio
         return Rect(left, top, right, bottom)
     }
 }

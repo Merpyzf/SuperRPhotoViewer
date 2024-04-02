@@ -23,7 +23,7 @@ class AppViewModel {
             println("viewModelScope launch 所在线程：${Thread.currentThread().name}")
             val result = withContext(Dispatchers.IO) {
                 val allFileList = getAllFilesRecursively(dirPath)
-                val pattern = Pattern.compile("W_widepreview-(\\d+)")
+                val pattern = Pattern.compile("W_superR-widepreview-(\\d+)")
                 val allWideImageFileList = allFileList.filter {
                     pattern.matcher(it.nameWithoutExtension).find().also {
                         println("isFind: ${it}")
