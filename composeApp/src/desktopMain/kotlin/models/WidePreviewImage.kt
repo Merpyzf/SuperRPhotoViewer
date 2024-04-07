@@ -10,10 +10,14 @@ class WidePreviewImage(var imageFile: File, val allImageFiles: List<File>) {
         get() {
             return imageFile.waypointIndex()
         }
+    val imageFilePath: String
+        get() {
+            return imageFile.absolutePath
+        }
+
     var zoomSegmentImages = mutableStateListOf<ZoomSegmentImage>()
 
     init {
-        println("_Z_${waypointIndex}-")
         val pattern = Pattern.compile("_Z_${waypointIndex}-")
         val zoomImageFiles = allImageFiles.filter {
             val matcher = pattern.matcher(it.nameWithoutExtension)

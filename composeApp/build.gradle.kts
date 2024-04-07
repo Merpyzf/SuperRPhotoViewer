@@ -39,8 +39,15 @@ compose.desktop {
 
         nativeDistributions {
             targetFormats(TargetFormat.Dmg, TargetFormat.Msi, TargetFormat.Deb)
-            packageName = "com.zklf.superrphotoviewer"
+            nativeDistributions {
+                modules("jdk.unsupported")
+            }
+            packageName = "SuperRPhotoViewer"
             packageVersion = "1.0.0"
+
+//            windows {
+//                menu = true
+//            }
         }
     }
 }

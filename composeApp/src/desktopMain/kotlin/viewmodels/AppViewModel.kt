@@ -15,7 +15,7 @@ class AppViewModel {
     val superRPreviewImages = mutableStateListOf<WidePreviewImage>()
 
     init {
-        
+
     }
 
     fun getSuperRImageList(dirPath: String) {
@@ -25,22 +25,19 @@ class AppViewModel {
                 val allFileList = getAllFilesRecursively(dirPath)
                 val pattern = Pattern.compile("W_superR-widepreview-(\\d+)")
                 val allWideImageFileList = allFileList.filter {
-                    pattern.matcher(it.nameWithoutExtension).find().also {
-                        println("isFind: ${it}")
-                    }
+                    pattern.matcher(it.nameWithoutExtension).find()
                 }.map {
                     WidePreviewImage(it, allFileList)
                 }.sortedBy {
                     it.imageFile.lastModified()
                 }
-                
+
                 print("广角图片数量：${allWideImageFileList.size}")
                 superRPreviewImages.apply {
                     clear()
                     addAll(allWideImageFileList)
                 }
             }
-            println("result 所在线程：${Thread.currentThread().name}, ${result}")
         }
     }
 

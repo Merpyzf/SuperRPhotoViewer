@@ -1,10 +1,16 @@
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.AnimationSpec
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.hoverable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.onClick
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.Button
 import androidx.compose.material.MaterialTheme
 import androidx.compose.material.Text
@@ -17,11 +23,16 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.PathEffect
+import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.input.pointer.PointerEventType
 import androidx.compose.ui.input.pointer.onPointerEvent
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.text.PlatformParagraphStyle
+import androidx.compose.ui.text.PlatformTextStyle
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.DialogWindow
@@ -30,6 +41,7 @@ import androidx.compose.ui.window.rememberWindowState
 import androidx.compose.ui.window.singleWindowApplication
 import coil3.compose.AsyncImage
 import com.darkrockstudios.libraries.mpfilepicker.DirectoryPicker
+import helper.supportWindowsImageLoader
 import models.WidePreviewImage
 import org.jetbrains.compose.resources.ExperimentalResourceApi
 import org.jetbrains.compose.ui.tooling.preview.Preview
@@ -39,7 +51,7 @@ import java.awt.Desktop
 var isShowSegmentImage by mutableStateOf(false)
 var currentWidePreviewImage by mutableStateOf<WidePreviewImage?>(null)
 
-@OptIn(ExperimentalResourceApi::class)
+@OptIn(ExperimentalResourceApi::class, ExperimentalComposeUiApi::class)
 @Composable
 @Preview
 fun App(viewModel: AppViewModel) {
@@ -104,10 +116,9 @@ fun SuperRPreviewImageList(images: List<WidePreviewImage>, modifier: Modifier = 
 @Composable
 fun SuperRPreviewImageItem(image: WidePreviewImage, modifier: Modifier = Modifier) {
     Column(modifier = modifier, horizontalAlignment = Alignment.CenterHorizontally) {
-        val path = image.imageFile.path.replace("\\", "/")
-        println(path)
         AsyncImage(
-            path,
+            image.imageFilePath,
+            imageLoader = supportWindowsImageLoader,
             contentDescription = "",
             contentScale = ContentScale.Inside,
             modifier = Modifier.fillMaxWidth().aspectRatio(1.33f)
@@ -122,7 +133,8 @@ fun SuperRPreviewImageItem(image: WidePreviewImage, modifier: Modifier = Modifie
 fun SuperRSegmentView(widePreviewImage: WidePreviewImage) {
     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
         AsyncImage(
-            model = widePreviewImage.imageFile.path.replace("\\", "/"),
+            model = widePreviewImage.imageFilePath,
+            imageLoader = supportWindowsImageLoader,
             contentDescription = "",
             contentScale = ContentScale.Fit,
             modifier = Modifier.drawWithContent {
@@ -132,14 +144,6 @@ fun SuperRSegmentView(widePreviewImage: WidePreviewImage) {
                 // FIXME: 后面查看新拍摄的图片时移除此处的纠错逻辑
                 val scaleWRatio = size.width / rawWideImageSize.width
                 val scaleHRatio = size.height / rawWideImageSize.height
-
-//                val scaleWRatio = (size.width / 1.3333334f) / rawWideImageSize.width
-//                val scaleHRatio = (size.height / 1.074074f) / rawWideImageSize.height
-
-                println("scaleWRatio: ${scaleWRatio}, scaleHRation: ${scaleHRatio}")
-
-                println("zoomSegmentImages.size: ${widePreviewImage.zoomSegmentImages.size}")
-
                 for (zoomSegmentImage in widePreviewImage.zoomSegmentImages) {
                     zoomSegmentImage.scaleRect(scaleWRatio, scaleHRatio)
                     val scaledRect = zoomSegmentImage.scaledRect
@@ -158,8 +162,6 @@ fun SuperRSegmentView(widePreviewImage: WidePreviewImage) {
                 }
             }.onPointerEvent(PointerEventType.Press) {
                 val position = it.changes.first().position
-                println("position: (${position.x}, ${position.y})")
-
                 val clickedSegmentImage = widePreviewImage.zoomSegmentImages.find {
                     it.scaledRect.contains(offset = Offset(position.x, position.y))
                 }
@@ -167,7 +169,6 @@ fun SuperRSegmentView(widePreviewImage: WidePreviewImage) {
                     println("点击位置不包含分割图片")
                 } else {
                     if (Desktop.isDesktopSupported()) {
-                        println("Desktop support")
                         val desktop = Desktop.getDesktop()
                         if (desktop.isSupported(Desktop.Action.OPEN)) {
                             try {
@@ -181,9 +182,7 @@ fun SuperRSegmentView(widePreviewImage: WidePreviewImage) {
                     } else {
                         println("Desktop not support")
                     }
-
                     println("点击位置包含分割图片：${clickedSegmentImage?.imageFile?.path}")
-
                 }
             }
         )
