@@ -1,59 +1,106 @@
 package viewmodels
 
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
+import helper.IntervalWidePhotoNameRegex
+import helper.NormalWidePhotoNameRegex
+import helper.SuperRWidePhotoNameRegex
 import kotlinx.coroutines.*
-import models.WidePreviewImage
+import models.PreviewWidePhoto
+import models.ZoomPhoto
 import java.io.File
+import java.io.FileNotFoundException
 import java.util.regex.Pattern
 
 class AppViewModel {
     private val viewModelScopeLazy = lazy {
         CoroutineScope(SupervisorJob() + Dispatchers.Main)
     }
-    private val viewModelScope by viewModelScopeLazy
+    val scope by viewModelScopeLazy
 
-    val superRPreviewImages = mutableStateListOf<WidePreviewImage>()
+    var photoDirPath by mutableStateOf("")
+    var photoFiles = mutableListOf<File>()
 
-    init {
+    // 首页展示的超清矩阵广角照片
+    val previewWidePhotos = mutableStateListOf<PreviewWidePhoto>()
 
-    }
+    var isOpenWidePhoto by mutableStateOf(false)
+    var currOpenWidePhoto by mutableStateOf<PreviewWidePhoto?>(null)
 
-    fun getSuperRImageList(dirPath: String) {
-        viewModelScope.launch() {
-            println("viewModelScope launch 所在线程：${Thread.currentThread().name}")
-            val result = withContext(Dispatchers.IO) {
-                val allFileList = getAllFilesRecursively(dirPath)
-                val pattern = Pattern.compile("W_superR-widepreview-(\\d+)")
-                val allWideImageFileList = allFileList.filter {
-                    pattern.matcher(it.nameWithoutExtension).find()
-                }.map {
-                    WidePreviewImage(it, allFileList)
-                }.sortedBy {
-                    it.imageFile.lastModified()
-                }
-
-                print("广角图片数量：${allWideImageFileList.size}")
-                superRPreviewImages.apply {
-                    clear()
-                    addAll(allWideImageFileList)
-                }
-            }
-        }
-    }
-
-    private fun getAllFilesRecursively(dirPath: String): List<File> {
-        val fileList = mutableListOf<File>()
-        val dir = File(dirPath)
-        for (file in dir.listFiles()!!) {
-            if (file.isDirectory) {
-                getAllFilesRecursively(file.path).also {
-                    fileList.addAll(it)
-                }
+    suspend fun setPhotoDirPath(photoDirPath: String) {
+        this.photoDirPath = photoDirPath
+        withContext(Dispatchers.IO) {
+            val photoDir = File(this@AppViewModel.photoDirPath)
+            if (!photoDir.exists()) {
+                throw FileNotFoundException("出错了，所选文件夹不存在")
+            } else if (photoDir.listFiles()!!.isEmpty()) {
+                throw FileNotFoundException("所选文件夹下没有任何文件")
             } else {
-                fileList.add(file)
+                photoFiles.clear()
+                loadPhotoFiles(this, File(photoDirPath), photoFiles)
+                previewWidePhotos.clear()
+                previewWidePhotos.addAll(filterSuperRWidePhotos(photoFiles))
+                println("photoFiles.size：${photoFiles.size}")
             }
         }
-        return fileList
+    }
+
+    private fun loadPhotoFiles(scope: CoroutineScope, file: File, photoFiles: MutableList<File>) {
+        if (!scope.isActive) {
+            return
+        }
+        println("scope.isActive: ${scope.isActive} ,loadPhotoFiles: ${file.path}")
+        if (!file.exists()) {
+            return
+        }
+        if (file.isDirectory) {
+            val listFiles = file.listFiles() ?: return
+            for (f in listFiles) {
+                loadPhotoFiles(scope, f, photoFiles)
+            }
+        } else {
+            if (file.length() != 0L && (file.extension.equals("png", ignoreCase = true) || file.extension.equals(
+                    "jpg",
+                    ignoreCase = true
+                ))
+            ) {
+                photoFiles.add(file)
+            }
+        }
+    }
+
+    private fun filterSuperRWidePhotos(photoFiles: List<File>): List<PreviewWidePhoto> {
+        val previewWidePhotos = mutableListOf<PreviewWidePhoto>()
+        for (photoFile in photoFiles) {
+            val photoNameRegexList = mutableListOf(
+                IntervalWidePhotoNameRegex(photoFile.nameWithoutExtension),
+                NormalWidePhotoNameRegex(photoFile.nameWithoutExtension),
+                SuperRWidePhotoNameRegex(photoFile.nameWithoutExtension)
+            )
+
+            for (photoNameRegex in photoNameRegexList) {
+                if (photoNameRegex.isMatch()) {
+                    val widePhoto =
+                        PreviewWidePhoto(photoNameRegex.captureType(), photoFile).apply {
+                            this.waypointIndex = photoNameRegex.waypointIndex()
+                            this.stage = photoNameRegex.stage()
+                        }
+                    previewWidePhotos.add(widePhoto)
+                    val zoomPhotos = photoNameRegex.getAllZoomPhotos(photoFiles).map { ZoomPhoto(it) }
+                    widePhoto.zoomPhotos.apply {
+                        this.clear()
+                        this.addAll(zoomPhotos)
+                    }
+                    break
+                }
+            }
+        }
+        previewWidePhotos.sortBy {
+            it.waypointIndex ?: 0
+        }
+        return previewWidePhotos
     }
 
     fun clear() {
