@@ -6,6 +6,7 @@ import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material.Text
 import androidx.compose.runtime.*
@@ -24,6 +25,8 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.input.pointer.PointerEventType
 import androidx.compose.ui.input.pointer.onPointerEvent
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.text.*
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Window
@@ -39,6 +42,9 @@ import components.*
 import helper.supportWindowsImageLoader
 import kotlinx.coroutines.launch
 import models.PreviewWidePhoto
+import org.jetbrains.compose.resources.DrawableResource
+import org.jetbrains.compose.resources.ExperimentalResourceApi
+import org.jetbrains.compose.resources.vectorResource
 import org.jetbrains.compose.ui.tooling.preview.Preview
 import org.jetbrains.jewel.ui.Orientation
 import org.jetbrains.jewel.ui.component.*
@@ -46,12 +52,12 @@ import org.jetbrains.jewel.ui.component.VerticalScrollbar
 import viewmodels.AppViewModel
 import java.awt.Desktop
 
+@OptIn(ExperimentalResourceApi::class)
 @Composable
 @Preview
 fun App(viewModel: AppViewModel) {
     val scope = rememberCoroutineScope()
     var showDirPicker by remember { mutableStateOf(false) }
-    var showLoading by remember { mutableStateOf(false) }
 
     val toaster = rememberToasterState()
     Toaster(toaster)
@@ -67,10 +73,10 @@ fun App(viewModel: AppViewModel) {
         }
         scope.launch {
             try {
-                showLoading = true
+                viewModel.showLoading = true
                 // 图片选择完毕后会去加载所有的图片，并筛选出首页需要展示的超清矩阵预览图
                 viewModel.setPhotoDirPath(path)
-                showLoading = false
+                viewModel.showLoading = false
             } catch (e: Exception) {
                 toaster.show("👹${e.message}", type = ToastType.Error)
             }
@@ -89,7 +95,7 @@ fun App(viewModel: AppViewModel) {
 
     Column(modifier = Modifier.background(Color.White).fillMaxSize()) {
         Box(modifier = Modifier.fillMaxWidth().weight(1f), contentAlignment = Alignment.Center) {
-            Crossfade(targetState = showLoading) { isLoading ->
+            Crossfade(targetState = viewModel.showLoading) { isLoading ->
                 if (isLoading) {
                     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                         CircularProgressIndicatorBig()
@@ -97,10 +103,28 @@ fun App(viewModel: AppViewModel) {
                 } else {
                     if (viewModel.photoFiles.isEmpty() && viewModel.photoDirPath.isBlank()) {
                         PlaceHolder(message = "")
-                    } else if (viewModel.photoFiles.isEmpty()) {
+                    } else if (viewModel.previewWidePhotos.isEmpty()) {
                         PlaceHolder(message = "😶‍🌫️无内容，请检查您选择的文件夹")
                     } else {
-                        SuperRPreviewImageList(viewModel, modifier = Modifier.fillMaxSize())
+                        Column(modifier = Modifier.fillMaxSize(), horizontalAlignment = Alignment.CenterHorizontally) {
+                            Spacer(modifier = Modifier.height(12.dp))
+                            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center) {
+                                SearchField(viewModel.keyword, onKeywordChange = { newKeyword ->
+                                    viewModel.updateKeyword(newKeyword)
+                                }, modifier = Modifier.fillMaxWidth(0.4f))
+                            }
+                            Spacer(modifier = Modifier.height(12.dp))
+                            Box(modifier = Modifier.fillMaxWidth().weight(1f)) {
+                                if (viewModel.searchResultPreviewWidePhotos.isEmpty() && viewModel.keyword.isNotBlank()) {
+                                    PlaceHolder(
+                                        message = "🐾没有搜索到任何图片",
+                                        modifier = Modifier.fillMaxSize()
+                                    )
+                                } else {
+                                    SuperRPreviewImageList(viewModel, modifier = Modifier.fillMaxSize())
+                                }
+                            }
+                        }
                     }
                 }
             }
@@ -128,7 +152,7 @@ fun App(viewModel: AppViewModel) {
             Spacer(modifier = Modifier.weight(1f))
             if (viewModel.photoDirPath.isNotBlank()) {
                 Text(
-                    text = "照片数量：${viewModel.previewWidePhotos.size}",
+                    text = "照片数量：${viewModel.searchResultPreviewWidePhotos.size}",
                     color = textColor,
                     fontSize = titleSize,
                     lineHeight = titleSize
@@ -138,7 +162,58 @@ fun App(viewModel: AppViewModel) {
     }
 }
 
-@OptIn(ExperimentalComposeUiApi::class)
+@OptIn(ExperimentalResourceApi::class)
+@Composable
+fun SearchField(keyword: String, onKeywordChange: (newKeyword: String) -> Unit, modifier: Modifier = Modifier) {
+    var isPlaceHolderVisible by remember { mutableStateOf(keyword.isEmpty()) }
+    Row(
+        modifier = Modifier
+            .then(modifier)
+            .border(
+                width = 1.dp,
+                color = Color.Black.copy(0.2f),
+                shape = RoundedCornerShape(4.dp)
+            )
+            .padding(6.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.Start
+    ) {
+        Box(modifier = Modifier.weight(1f)) {
+            BasicTextField(
+                keyword,
+                onValueChange = {
+                    onKeywordChange.invoke(it)
+                    isPlaceHolderVisible = it.isEmpty()
+                },
+                singleLine = true,
+                textStyle = TextStyle.Default.copy(
+                    fontSize = titleSize,
+                    lineHeight = titleSize,
+                    color = textColor
+                ),
+                modifier = Modifier.fillMaxWidth()
+            )
+            if (isPlaceHolderVisible) {
+                Text(
+                    "请输入关键字搜索图片",
+                    fontSize = titleSize,
+                    lineHeight = titleSize,
+                    color = secondaryTextColor,
+                    modifier = Modifier.padding(start = 1.dp)
+                )
+            }
+        }
+        Spacer(modifier = Modifier.width(3.dp))
+        Icon(
+            imageVector = vectorResource(DrawableResource("drawable/ic_search.xml")),
+            modifier = Modifier.size(24.dp, 24.dp).padding(3.dp),
+            tint = Color.Black.copy(0.6f),
+            contentDescription = ""
+        )
+    }
+}
+
+@OptIn(ExperimentalComposeUiApi::class, ExperimentalFoundationApi::class)
 @Composable
 fun SuperRPreviewImageList(viewModel: AppViewModel, modifier: Modifier = Modifier) {
     val state =
@@ -146,17 +221,21 @@ fun SuperRPreviewImageList(viewModel: AppViewModel, modifier: Modifier = Modifie
 
     Box(modifier = Modifier.then(modifier)) {
         LazyVerticalGrid(
-            GridCells.Fixed(3), modifier = Modifier.fillMaxSize(), contentPadding = PaddingValues(12.dp), state = state
+            GridCells.Fixed(3), modifier = Modifier.fillMaxSize(), contentPadding = PaddingValues(start = 12.dp, top = 0.dp, end = 12.dp, bottom = 12.dp), state = state
         ) {
-            items(viewModel.previewWidePhotos) {
+            items(viewModel.searchResultPreviewWidePhotos, key = {
+                it.photoFile.hashCode()
+            }) {
                 Box(modifier = Modifier.padding(12.dp)) {
                     val widePreviewImage = it
                     SuperRPreviewImageItem(
                         widePreviewImage,
-                        modifier = Modifier.fillMaxWidth().onPointerEvent(PointerEventType.Press) {
-                            viewModel.isOpenWidePhoto = true
-                            viewModel.currOpenWidePhoto = widePreviewImage
-                        })
+                        viewModel.keyword,
+                        modifier = Modifier.fillMaxWidth()
+                            .onPointerEvent(PointerEventType.Press) {
+                                viewModel.isOpenWidePhoto = true
+                                viewModel.currOpenWidePhoto = widePreviewImage
+                            })
                 }
             }
         }
@@ -165,12 +244,11 @@ fun SuperRPreviewImageList(viewModel: AppViewModel, modifier: Modifier = Modifie
             adapter = ScrollbarAdapter(scrollState = state),
         )
     }
-
 }
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-fun SuperRPreviewImageItem(image: PreviewWidePhoto, modifier: Modifier = Modifier) {
+fun SuperRPreviewImageItem(image: PreviewWidePhoto, keyword: String, modifier: Modifier = Modifier) {
     val painter = rememberAsyncImagePainter(
         model = image.imageFilePath,
         imageLoader = supportWindowsImageLoader,
@@ -226,8 +304,22 @@ fun SuperRPreviewImageItem(image: PreviewWidePhoto, modifier: Modifier = Modifie
             Badge(text = "${image.type.text}(${image.zoomPhotos.size}张)", color = Color(0xFF87d068))
         }
         Spacer(modifier = Modifier.height(6.dp))
+//        AnnotatedString("${image.photoFile.nameWithoutExtension}")
+        val name = image.photoFile.nameWithoutExtension
         Text(
-            text = "${image.photoFile.nameWithoutExtension}",
+            text = buildAnnotatedString {
+                val startIndex = name.indexOf(keyword, ignoreCase = true)
+                if (startIndex >= 0) {
+                    val endIndex = startIndex + keyword.length
+                    append(name.substring(0, startIndex))
+                    withStyle(style = SpanStyle(color = Color.Red.copy(0.8f), fontWeight = FontWeight.Bold)) {
+                        append(name.substring(startIndex, endIndex))
+                    }
+                    append(name.substring(endIndex, name.length))
+                } else {
+                    append(name)
+                }
+            },
             color = textColor,
             fontSize = subTitleSize,
         )

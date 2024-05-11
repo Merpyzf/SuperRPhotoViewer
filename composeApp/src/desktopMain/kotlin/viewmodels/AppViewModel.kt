@@ -1,9 +1,6 @@
 package viewmodels
 
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateListOf
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.setValue
+import androidx.compose.runtime.*
 import helper.IntervalWidePhotoNameRegex
 import helper.NormalWidePhotoNameRegex
 import helper.SuperRWidePhotoNameRegex
@@ -20,14 +17,43 @@ class AppViewModel {
     }
     val scope by viewModelScopeLazy
 
+    var showLoading by mutableStateOf(false)
+
+    var isOpenWidePhoto by mutableStateOf(false)
+    var currOpenWidePhoto by mutableStateOf<PreviewWidePhoto?>(null)
+
     var photoDirPath by mutableStateOf("")
     var photoFiles = mutableListOf<File>()
 
     // 首页展示的超清矩阵广角照片
-    val previewWidePhotos = mutableStateListOf<PreviewWidePhoto>()
+    val previewWidePhotos = mutableListOf<PreviewWidePhoto>()
+    val searchResultPreviewWidePhotos = mutableStateListOf<PreviewWidePhoto>()
 
-    var isOpenWidePhoto by mutableStateOf(false)
-    var currOpenWidePhoto by mutableStateOf<PreviewWidePhoto?>(null)
+    var keyword by mutableStateOf("")
+    fun updateKeyword(keyword: String) {
+        this.keyword = keyword
+        doSearch()
+    }
+
+    fun doSearch() {
+        showLoading = true
+        if (keyword.isBlank()) {
+            searchResultPreviewWidePhotos.apply {
+                clear()
+                addAll(previewWidePhotos)
+            }
+        } else {
+            searchResultPreviewWidePhotos.apply {
+                clear()
+                addAll(
+                    previewWidePhotos.filter {
+                        it.photoFile.nameWithoutExtension.contains(keyword, ignoreCase = true)
+                    }
+                )
+            }
+        }
+        showLoading = false
+    }
 
     suspend fun setPhotoDirPath(photoDirPath: String) {
         this.photoDirPath = photoDirPath
@@ -42,6 +68,7 @@ class AppViewModel {
                 loadPhotoFiles(this, File(photoDirPath), photoFiles)
                 previewWidePhotos.clear()
                 previewWidePhotos.addAll(filterSuperRWidePhotos(photoFiles))
+                updateKeyword(keyword)
                 println("photoFiles.size：${photoFiles.size}")
             }
         }
